@@ -1,4 +1,4 @@
-package com.yarmis.core.connectivity;
+package com.yarmis.core.security;
 
 public enum Right {
 

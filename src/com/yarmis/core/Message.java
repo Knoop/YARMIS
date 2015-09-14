@@ -1,4 +1,4 @@
-package com.yarmis.core.connectivity;
+package com.yarmis.core;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -8,9 +8,8 @@ import java.text.ParseException;
 import java.util.InputMismatchException;
 
 import com.yarmis.core.security.Crypto;
-@SuppressWarnings("unused")
-public class Message {
-	
+
+class Message {
 	private final int version;
 	private final int length;
 	private final byte[] header;
@@ -29,6 +28,9 @@ public class Message {
 	private static final int MAX_TYPE = (1 << TYPE_BITS) - 1;
 	private static final int LENGTH_BITS = HEADER_SIZE * 8 - VERSION_BITS - TYPE_BITS;
 	private static final int MAX_LENGTH = (1 << LENGTH_BITS) - 1;
+
+	private static final int SIGN_FLAG = 0x01;
+	private static final int DEDICATION_FLAG = 0x02;
 
 	private static final int NONCE_SIZE = 8, SIG_SIZE = 32;
 	private static final int BASE_SIZE = HEADER_SIZE + NONCE_SIZE + SIG_SIZE;
@@ -222,8 +224,8 @@ public class Message {
 			shift = 7;
 		}
 		int type = 0;
-		type |= 0x01 & (isSigned?1:0);
-		type |= 0x02 & (isDedicated?1:0);
+		type |= (isSigned?SIGN_FLAG:0);
+		type |= (isDedicated?DEDICATION_FLAG:0);
 
 		for(int i = TYPE_BITS - 1; i > 0; i--) {
 			b |= (type / (1 << i))<<shift--;
@@ -261,11 +263,11 @@ public class Message {
 	}
 	
 	private static boolean isSigned(int type) {
-		return (type & 0x01) != 0;
+		return (type & SIGN_FLAG) != 0;
 	}
 	
 	private static boolean isDedicated(int type) {
-		return (type & 0x02) != 0;
+		return (type & DEDICATION_FLAG) != 0;
 	}
 
 	public static class MessageReader {

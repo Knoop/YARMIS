@@ -1,19 +1,15 @@
-package com.yarmis.core.connectivity.exceptions;
+package com.yarmis.core.exceptions;
 
 import java.util.List;
 
-import com.yarmis.core.connectivity.Right;
+import com.yarmis.core.security.Right;
 
 public class UnauthorizedRequestException extends Exception {
 
 	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -4797760408953476135L;
-	/**
 	 * A list of missing Rights.
 	 */
-	private final List<String> missing;
+	private final List<Right> missing;
 
 	/**
 	 * Creates a new UnauthorizedRequestException with the given list of Rights
@@ -21,7 +17,7 @@ public class UnauthorizedRequestException extends Exception {
 	 * 
 	 * @param missing
 	 */
-	public UnauthorizedRequestException(List<String> missing) {
+	public UnauthorizedRequestException(List<Right> missing) {
 		super();
 		this.missing = missing;
 	}

@@ -9,11 +9,10 @@ import java.lang.annotation.Target;
 
 @Documented
 @Inherited
-@Target({ElementType.METHOD})
+@Target({ ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DemandRights {
-	
-	
-	String[] value();
+
+	Right[] value();
 
 }

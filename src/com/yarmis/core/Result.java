@@ -1,7 +1,9 @@
-package com.yarmis.core.connectivity;
+package com.yarmis.core;
 
-import java.util.LinkedList;
-import java.util.List;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+
 
 /**
  * Result is a class that helps you to get a value from any Connection. It
@@ -24,7 +26,7 @@ public class Result {
 	 * is equal to the FLAG_THROW_EXCEPTION flag in Response.
 	 * </p>
 	 */
-	private boolean exceptionNeedsThrowing;
+	private boolean success;
 
 	/**
 	 * <p>
@@ -41,18 +43,11 @@ public class Result {
 	private boolean hasReleased;
 
 	/**
-	 * The List of listeners that need to be called when the result is known.
-	 * This is used in lieu of .get()
-	 */
-	private List<OnResultReceivedListener> callbacks;
-
-	/**
 	 * Create a new Result.
 	 */
 	Result() {
 		this.result = null;
 		this.hasReleased = false;
-		this.callbacks = new LinkedList<OnResultReceivedListener>();
 	}
 
 	/**
@@ -65,20 +60,20 @@ public class Result {
 	 * you however can not or don't want to block the thread waiting for the
 	 * result, use addOnResultReceivedListener instead.
 	 * </p>
-	 * 
+	 *
 	 * @return
 	 * @throws Exception
 	 */
 	public Object get() throws Exception {
 
 		// wait for the result to be set but only it hasn't released before.
-		if (!this.hasReleased){
+		if (!this.hasReleased)
 			synchronized (this) {
 				this.wait();
 			}
-		}
+
 		// when you get here, result has been set.
-		if (this.result instanceof Exception && this.exceptionNeedsThrowing)
+		if (this.success)
 			throw (Exception) this.result;
 
 		// If no exception has been thrown, just return it.
@@ -87,29 +82,13 @@ public class Result {
 	}
 
 	/**
-	 * <p>
-	 * Add a OnResultReceivedListener to this Result. The Listener will be
-	 * called when the Result has been received.
-	 * </p>
-	 * <p>
-	 * This listener is meant as a way of adding a callback such that you do not
-	 * have to wait for the result to continue your work. If you can not
-	 * continue until the result is known, call .get instead.
-	 * </p>
-	 * 
-	 * @param listener
-	 */
-	public void addOnResultReceivedListener(OnResultReceivedListener listener) {
-		this.callbacks.add(listener);
-	}
-
-	/**
 	 * Set the given response as the result. This will also release all threads
 	 * waiting for this response.
-	 * 
+	 *
 	 * @param response
 	 */
-	void set(Response response) {
+
+	void set(JSONObject response) {
 
 		if (this.result != null)
 			throw new IllegalStateException(
@@ -118,54 +97,50 @@ public class Result {
 		// No one is allowed to do anything while this is unpacking.
 		synchronized (this) {
 			// unpack the response
-			this.result = response.result;
-			this.exceptionNeedsThrowing = response
-					.isSet(Response.FLAG_THROW_EXCEPTION);
+			this.success = response.getBoolean(Communication.Response.SUCCESS);
 
+			// If it is a success, use the response value.
+			if(this.success)
+			    this.result = response.get(Communication.Response.VALUE);
+			// If it wasn't a success, try to recreate the correct exception. 
+			else
+			{
+			    try {
+				this.result = Class.forName(response.getString(Communication.Response.VALUE)).newInstance();
+			    } catch (InstantiationException e) {
+				e.printStackTrace();
+			    } catch (IllegalAccessException e) {
+				e.printStackTrace();
+			    } catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			    } catch (JSONException e) {
+				this.result = e;
+				e.printStackTrace();
+			    }
+			    
+			    if(this.result == null)
+				this.result = new UnsuccessfulRequestException(response.getString(Communication.Response.VALUE));
+			}
+			
 			// release at the very last moment.
 			this.hasReleased = true;
 			this.notify();
 		}
-
-		// Now that everything is unpacked and threads have been released, call
-		// all listeners. This is done in a separate thread.
-		(new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				Object result;
-				try {
-					result = get();
-
-				} catch (Exception e) {
-					// Notify every waiter of the exception. Can't throw them
-					// directly. Also catch everything one of the listeners
-					// throws. Don't want one listener to screw up for the rest.
-					for (OnResultReceivedListener listener : callbacks) {
-						try {
-							listener.onResultFailed(e);
-						} catch (Exception e1) {
-							e1.printStackTrace();
-						}
-					}
-					return;
-
-				}
-				for (OnResultReceivedListener listener : callbacks)
-					listener.onResultReceived(result);
-			}
-		})).start();
 	}
 
 	/**
-	 * 
+	 * Exception indicating that a Request was unsuccessful. This is only used when no better exception can be thrown. 
 	 * @author Maurice
-	 * 
+	 *
 	 */
-	public static interface OnResultReceivedListener {
-		public void onResultReceived(Object result);
+	public class UnsuccessfulRequestException extends Exception{
 
-		public void onResultFailed(Exception exceptionThrown);
+	    public UnsuccessfulRequestException(String string) {
+		super(string);
+	    }
+	
 	}
+
+	
 
 }
